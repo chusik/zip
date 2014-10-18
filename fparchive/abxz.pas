@@ -213,14 +213,13 @@ begin
     	Size:= SizeOf(FOutput) - FLzmaRec.avail_out;
     	if FTarget.Write(FOutput, Size) <> Size then
         begin
-    	  //raise EWriteError.Create(EmptyStr);
-            RaiseLastOSError;
+          RaiseLastOSError;
     	end;
     	FLzmaRec.next_out := FOutput;
     	FLzmaRec.avail_out := SizeOf(FOutput);
     end;
     if State = LZMA_STREAM_END then Exit(True);
-    if FLzmaRec.total_out = Count then Action:= LZMA_FINISH;
+    if FLzmaRec.total_out >= Count then Action:= LZMA_FINISH;
   end;
 end;
 
