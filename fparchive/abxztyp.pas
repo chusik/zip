@@ -21,6 +21,7 @@
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
+ * Alexander Koblov <alexx2000@users.sourceforge.net>
  *
  * ***** END LICENSE BLOCK ***** *)
 
@@ -113,12 +114,13 @@ uses
   Windows, // Fix inline warnings
 {$ENDIF}
   StrUtils, SysUtils,
-  AbXz, AbExcept, AbVMStrm, AbBitBkt, DCOSUtils, DCClassesUtf8;
+  AbXz, AbExcept, AbVMStrm, AbBitBkt, CRC, DCOSUtils, DCClassesUtf8;
 
 { ****************** Helper functions Not from Classes Above ***************** }
 function VerifyHeader(const Header : TAbXzHeader) : Boolean;
 begin
   Result := CompareByte(Header.HeaderMagic, AB_XZ_FILE_HEADER, SizeOf(Header.HeaderMagic)) = 0;
+  Result := Result and (crc32(0, PByte(@Header.StreamFlags), SizeOf(Header.StreamFlags)) = Header.CRC32);
 end;
 { -------------------------------------------------------------------------- }
 function VerifyXz(Strm : TStream) : TAbArchiveType;
