@@ -66,8 +66,8 @@ type
 
   TAbXzArchive = class(TAbTarArchive)
   private
-    FXzStream  : TStream;        { stream for Xz file}
-    FXzItem    : TAbArchiveList; { item in xz (only one, but need polymorphism of class)}
+    FXzStream     : TStream;        { stream for Xz file}
+    FXzItem       : TAbArchiveList; { item in xz (only one, but need polymorphism of class)}
     FTarStream    : TStream;        { stream for possible contained Tar }
     FTarList      : TAbArchiveList; { items in possible contained Tar }
     FTarAutoHandle: Boolean;
