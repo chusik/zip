@@ -66,13 +66,13 @@ type
 
   TAbXzArchive = class(TAbTarArchive)
   private
-    FBzip2Stream  : TStream;        { stream for Xz file}
-    FBzip2Item    : TAbArchiveList; { item in xz (only one, but need polymorphism of class)}
+    FXzStream  : TStream;        { stream for Xz file}
+    FXzItem    : TAbArchiveList; { item in xz (only one, but need polymorphism of class)}
     FTarStream    : TStream;        { stream for possible contained Tar }
     FTarList      : TAbArchiveList; { items in possible contained Tar }
     FTarAutoHandle: Boolean;
     FState        : TAbXzArchiveState;
-    FIsBzippedTar : Boolean;
+    FIsXzippedTar : Boolean;
 
     procedure DecompressToStream(aStream: TStream);
     procedure SetTarAutoHandle(const Value: Boolean);
@@ -101,8 +101,8 @@ type
     property TarAutoHandle : Boolean
       read FTarAutoHandle write SetTarAutoHandle;
 
-    property IsBzippedTar : Boolean
-      read FIsBzippedTar write FIsBzippedTar;
+    property IsXzippedTar : Boolean
+      read FIsXzippedTar write FIsXzippedTar;
   end;
 
 function VerifyXz(Strm : TStream) : TAbArchiveType;
@@ -147,7 +147,7 @@ begin
           DecompStream.Code(512 * 2);
           TarStream.Seek(0, soFromBeginning);
           if VerifyTar(TarStream) = atTar then
-            Result := atXzTar;
+            Result := atXzippedTar;
         finally
           DecompStream.Free;
         end;
@@ -169,8 +169,8 @@ constructor TAbXzArchive.CreateFromStream(aStream: TStream;
 begin
   inherited CreateFromStream(aStream, aArchiveName);
   FState       := gsXz;
-  FBzip2Stream := FStream;
-  FBzip2Item   := FItemList;
+  FXzStream    := FStream;
+  FXzItem      := FItemList;
   FTarStream   := TAbVirtualMemoryStream.Create;
   FTarList     := TAbArchiveList.Create(True);
 end;
@@ -184,32 +184,32 @@ end;
 { -------------------------------------------------------------------------- }
 procedure TAbXzArchive.SwapToXz;
 begin
-  FStream   := FBzip2Stream;
-  FItemList := FBzip2Item;
+  FStream   := FXzStream;
+  FItemList := FXzItem;
   FState    := gsXz;
 end;
 { -------------------------------------------------------------------------- }
 function TAbXzArchive.CreateItem(const SourceFileName   : string;
                                     const ArchiveDirectory : string): TAbArchiveItem;
 var
-  Bz2Item : TAbXzItem;
+  XzItem : TAbXzItem;
   FullSourceFileName, FullArchiveFileName: String;
 begin
-  if IsBzippedTar and TarAutoHandle then begin
+  if IsXzippedTar and TarAutoHandle then begin
     SwapToTar;
     Result := inherited CreateItem(SourceFileName, ArchiveDirectory);
   end
   else begin
     SwapToXz;
-    Bz2Item := TAbXzItem.Create;
+    XzItem := TAbXzItem.Create;
     try
       MakeFullNames(SourceFileName, ArchiveDirectory,
                     FullSourceFileName, FullArchiveFileName);
 
-      Bz2Item.FileName := FullArchiveFileName;
-      Bz2Item.DiskFileName := FullSourceFileName;
+      XzItem.FileName := FullArchiveFileName;
+      XzItem.DiskFileName := FullSourceFileName;
 
-      Result := Bz2Item;
+      Result := XzItem;
     except
       Result := nil;
       raise;
@@ -230,7 +230,7 @@ procedure TAbXzArchive.ExtractItemAt(Index: Integer;
 var
   OutStream : TStream;
 begin
-  if IsBzippedTar and TarAutoHandle then begin
+  if IsXzippedTar and TarAutoHandle then begin
     SwapToTar;
     inherited ExtractItemAt(Index, NewName);
   end
@@ -243,7 +243,7 @@ begin
       finally
         OutStream.Free;
       end;
-      { Bz2 doesn't store the last modified time or attributes, so don't set them }
+      { Xz doesn't store the last modified time or attributes, so don't set them }
     except
       on E : EAbUserAbort do begin
         FStatus := asInvalid;
@@ -262,20 +262,20 @@ end;
 procedure TAbXzArchive.ExtractItemToStreamAt(Index: Integer;
   aStream: TStream);
 begin
-  if IsBzippedTar and TarAutoHandle then begin
+  if IsXzippedTar and TarAutoHandle then begin
     SwapToTar;
     inherited ExtractItemToStreamAt(Index, aStream);
   end
   else begin
     SwapToXz;
-    { Index ignored as there's only one item in a Bz2 }
+    { Index ignored as there's only one item in a Xz }
     DecompressToStream(aStream);
   end;
 end;
 { -------------------------------------------------------------------------- }
 function TAbXzArchive.GetSupportsEmptyFolders : Boolean;
 begin
-  Result := IsBzippedTar and TarAutoHandle;
+  Result := IsXzippedTar and TarAutoHandle;
 end;
 { -------------------------------------------------------------------------- }
 procedure TAbXzArchive.LoadArchive;
@@ -284,10 +284,10 @@ var
   Abort: Boolean;
   ItemName: string;
 begin
-  if FBzip2Stream.Size = 0 then
+  if FXzStream.Size = 0 then
     Exit;
 
-  if IsBzippedTar and TarAutoHandle then begin
+  if IsXzippedTar and TarAutoHandle then begin
     { Decompress and send to tar LoadArchive }
     DecompressToStream(FTarStream);
     SwapToTar;
@@ -319,13 +319,13 @@ var
   InputFileStream: TStream;
   LzmaCompression: TLzmaCompression;
 begin
-  if IsBzippedTar and TarAutoHandle then
+  if IsXzippedTar and TarAutoHandle then
   begin
     SwapToTar;
     inherited SaveArchive;
     FTarStream.Position := 0;
-    FBzip2Stream.Size := 0;
-    LzmaCompression := TLzmaCompression.Create(FTarStream, FBzip2Stream);
+    FXzStream.Size := 0;
+    LzmaCompression := TLzmaCompression.Create(FTarStream, FXzStream);
     try
       LzmaCompression.Code();
     finally
@@ -346,21 +346,21 @@ begin
         aaNone, aaMove: Break;{ Do nothing; xz doesn't store metadata }
         aaDelete: ; {doing nothing omits file from new stream}
         aaAdd, aaFreshen, aaReplace, aaStreamAdd: begin
-          FBzip2Stream.Size := 0;
+          FXzStream.Size := 0;
           if CurItem.Action = aaStreamAdd then
           begin
-            LzmaCompression := TLzmaCompression.Create(InStream, FBzip2Stream);
+            LzmaCompression := TLzmaCompression.Create(InStream, FXzStream);
             try
-              LzmaCompression.Code(); { Copy/compress entire Instream to FBzip2Stream }
+              LzmaCompression.Code(); { Copy/compress entire Instream to FXzStream }
             finally
               LzmaCompression.Free;
             end;
           end
           else begin
             InputFileStream := TFileStreamEx.Create(CurItem.DiskFileName, fmOpenRead or fmShareDenyWrite );
-            LzmaCompression := TLzmaCompression.Create(InputFileStream, FBzip2Stream);
+            LzmaCompression := TLzmaCompression.Create(InputFileStream, FXzStream);
             try
-              LzmaCompression.Code(); { Copy/compress entire Instream to FBzip2Stream }
+              LzmaCompression.Code(); { Copy/compress entire Instream to FXzStream }
             finally
               InputFileStream.Free;
             end;
@@ -384,10 +384,8 @@ end;
 procedure TAbXzArchive.DecompressToStream(aStream: TStream);
 var
   LzmaDecompression: TLzmaDecompression;
-  Buffer: PByte;
-  N: Integer;
 begin
-  LzmaDecompression := TLzmaDecompression.Create(FBzip2Stream, aStream);
+  LzmaDecompression := TLzmaDecompression.Create(FXzStream, aStream);
   try
     LzmaDecompression.Code
   finally
@@ -397,18 +395,18 @@ end;
 { -------------------------------------------------------------------------- }
 procedure TAbXzArchive.TestItemAt(Index: Integer);
 var
-  Bzip2Type: TAbArchiveType;
+  XzType: TAbArchiveType;
   BitBucket: TAbBitBucketStream;
 begin
-  if IsBzippedTar and TarAutoHandle then begin
+  if IsXzippedTar and TarAutoHandle then begin
     SwapToTar;
     inherited TestItemAt(Index);
   end
   else begin
     { note Index ignored as there's only one item in a GZip }
-    Bzip2Type := VerifyXz(FBzip2Stream);
-    if not (Bzip2Type in [atBzip2, atBzippedTar]) then
-      raise EAbGzipInvalid.Create;// TODO: Add bzip2-specific exceptions }
+    XzType := VerifyXz(FXzStream);
+    if not (XzType in [atXz, atXzippedTar]) then
+      raise EAbGzipInvalid.Create;// TODO: Add xz-specific exceptions }
     BitBucket := TAbBitBucketStream.Create(1024);
     try
       DecompressToStream(BitBucket);

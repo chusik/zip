@@ -543,7 +543,7 @@ begin
     else if (Ext = '.XZ') then
       Result := atXz
     else if (Ext = '.TXZ') then
-      Result := atXzTar;
+      Result := atXzippedTar;
   end;
   {$IF NOT DEFINED(ExtractCabSupport)}
   if Result = atCab then
@@ -577,7 +577,7 @@ begin
             atBzip2, atBzippedTar: begin
               Result := VerifyBzip2(FS);
             end;
-            atXz, atXzTar: begin
+            atXz, atXzippedTar: begin
               Result := VerifyXz(FS);
             end;
           end;

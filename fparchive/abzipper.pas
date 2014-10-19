@@ -447,14 +447,14 @@ begin
         atXz : begin
           FArchive := TAbXzArchive.Create(FileName, fmOpenRead or fmShareDenyNone);
           TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsBzippedTar := False;
+          TAbXzArchive(FArchive).IsXzippedTar := False;
           inherited InitArchive;
         end;
 
-        atXzTar : begin
+        atXzippedTar : begin
           FArchive := TAbXzArchive.Create(FileName, fmOpenRead or fmShareDenyNone);
           TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsBzippedTar := True;
+          TAbXzArchive(FArchive).IsXzippedTar := True;
           inherited InitArchive;
         end;
 
@@ -510,14 +510,14 @@ begin
         atXz : begin
           FArchive := TAbXzArchive.Create(FileName, fmCreate or fmShareDenyWrite);
           TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsBzippedTar := False;
+          TAbXzArchive(FArchive).IsXzippedTar := False;
           inherited InitArchive;
         end;
 
-        atXzTar : begin
+        atXzippedTar : begin
           FArchive := TAbXzArchive.Create(FileName, fmCreate or fmShareDenyWrite);
           TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsBzippedTar := True;
+          TAbXzArchive(FArchive).IsXzippedTar := True;
           inherited InitArchive;
         end;
 
