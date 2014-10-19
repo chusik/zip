@@ -358,9 +358,13 @@ begin
           end
           else begin
             InputFileStream := TFileStreamEx.Create(CurItem.DiskFileName, fmOpenRead or fmShareDenyWrite );
-            LzmaCompression := TLzmaCompression.Create(InputFileStream, FXzStream);
             try
-              LzmaCompression.Code(); { Copy/compress entire Instream to FXzStream }
+              LzmaCompression := TLzmaCompression.Create(InputFileStream, FXzStream);
+              try
+                LzmaCompression.Code(); { Copy/compress entire Instream to FXzStream }
+              finally
+                LzmaCompression.Free;
+              end;
             finally
               InputFileStream.Free;
             end;
