@@ -120,13 +120,13 @@ uses
 function VerifyHeader(const Header : TAbXzHeader) : Boolean;
 begin
   Result := CompareByte(Header.HeaderMagic, AB_XZ_FILE_HEADER, SizeOf(Header.HeaderMagic)) = 0;
-  Result := Result and (crc32(0, PByte(@Header.StreamFlags), SizeOf(Header.StreamFlags)) = Header.CRC32);
+  Result := Result and (Crc32(0, PByte(@Header.StreamFlags), SizeOf(Header.StreamFlags)) = Header.CRC32);
 end;
 { -------------------------------------------------------------------------- }
 function VerifyXz(Strm : TStream) : TAbArchiveType;
 var
   Hdr : TAbXzHeader;
-  CurPos : int64;
+  CurPos : Int64;
   TarStream: TStream;
   DecompStream: TLzmaDecompression;
 begin
@@ -314,7 +314,7 @@ end;
 { -------------------------------------------------------------------------- }
 procedure TAbXzArchive.SaveArchive;
 var
-  i: Integer;
+  I: Integer;
   CurItem: TAbXzItem;
   InputFileStream: TStream;
   LzmaCompression: TLzmaCompression;
@@ -339,9 +339,9 @@ begin
     { aaDelete could make a zero size file unless there are two files in the list.}
     { aaAdd, aaStreamAdd, aaFreshen, & aaReplace will be the only ones to take action. }
     SwapToXz;
-    for i := 0 to pred(Count) do begin
-      FCurrentItem := ItemList[i];
-      CurItem      := TAbXzItem(ItemList[i]);
+    for I := 0 to Pred(Count) do begin
+      FCurrentItem := ItemList[I];
+      CurItem      := TAbXzItem(ItemList[I]);
       case CurItem.Action of
         aaNone, aaMove: Break;{ Do nothing; xz doesn't store metadata }
         aaDelete: ; {doing nothing omits file from new stream}
@@ -357,7 +357,7 @@ begin
             end;
           end
           else begin
-            InputFileStream := TFileStreamEx.Create(CurItem.DiskFileName, fmOpenRead or fmShareDenyWrite );
+            InputFileStream := TFileStreamEx.Create(CurItem.DiskFileName, fmOpenRead or fmShareDenyWrite);
             try
               LzmaCompression := TLzmaCompression.Create(InputFileStream, FXzStream);
               try
@@ -407,10 +407,10 @@ begin
     inherited TestItemAt(Index);
   end
   else begin
-    { note Index ignored as there's only one item in a GZip }
+    { Note Index ignored as there's only one item in a GZip }
     XzType := VerifyXz(FXzStream);
     if not (XzType in [atXz, atXzippedTar]) then
-      raise EAbGzipInvalid.Create;// TODO: Add xz-specific exceptions }
+      raise EAbGzipInvalid.Create; // TODO: Add xz-specific exceptions }
     BitBucket := TAbBitBucketStream.Create(1024);
     try
       DecompressToStream(BitBucket);
