@@ -316,6 +316,8 @@ procedure TAbXzArchive.SaveArchive;
 var
   I: Integer;
   CurItem: TAbXzItem;
+  UpdateArchive: Boolean;
+  TempFileName: UTF8String;
   InputFileStream: TStream;
   LzmaCompression: TLzmaCompression;
 begin
@@ -323,13 +325,29 @@ begin
   begin
     SwapToTar;
     inherited SaveArchive;
+    UpdateArchive := (FXzStream.Size > 0) and (FXzStream is TFileStreamEx);
+    if UpdateArchive then
+    begin
+      FreeAndNil(FXzStream);
+      TempFileName := GetTempName(FArchiveName + ExtensionSeparator);
+      { Create new archive with temporary name }
+      FXzStream := TFileStreamEx.Create(TempFileName, fmCreate or fmShareDenyWrite);
+    end;
     FTarStream.Position := 0;
-    FXzStream.Size := 0;
     LzmaCompression := TLzmaCompression.Create(FTarStream, FXzStream);
     try
       LzmaCompression.Code();
     finally
       LzmaCompression.Free;
+    end;
+    if UpdateArchive then
+    begin
+      FreeAndNil(FXzStream);
+      { Replace original by new archive }
+      if not (mbDeleteFile(FArchiveName) and mbRenameFile(TempFileName, FArchiveName)) then
+        RaiseLastOSError;
+      { Open new archive }
+      FXzStream := TFileStreamEx.Create(FArchiveName, fmOpenRead or fmShareDenyNone);
     end;
   end
   else begin
