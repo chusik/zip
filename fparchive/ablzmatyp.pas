@@ -108,7 +108,7 @@ implementation
 
 uses
   StrUtils, SysUtils,
-  AbXz, AbExcept, AbVMStrm, AbBitBkt, ULZMADecoder, ULZMAEncoder, DCOSUtils, DCClassesUtf8;
+  AbExcept, AbVMStrm, AbBitBkt, ULZMADecoder, ULZMAEncoder, DCOSUtils, DCClassesUtf8;
 
 { ****************** Helper functions Not from Classes Above ***************** }
 function VerifyLzma(Strm : TStream) : TAbArchiveType;
@@ -183,7 +183,7 @@ end;
 function TAbLzmaArchive.CreateItem(const SourceFileName   : string;
                                     const ArchiveDirectory : string): TAbArchiveItem;
 var
-  XzItem : TAbLzmaItem;
+  LzmaItem : TAbLzmaItem;
   FullSourceFileName, FullArchiveFileName: String;
 begin
   if IsXzippedTar and TarAutoHandle then begin
@@ -192,15 +192,15 @@ begin
   end
   else begin
     SwapToLzma;
-    XzItem := TAbLzmaItem.Create;
+    LzmaItem := TAbLzmaItem.Create;
     try
       MakeFullNames(SourceFileName, ArchiveDirectory,
                     FullSourceFileName, FullArchiveFileName);
 
-      XzItem.FileName := FullArchiveFileName;
-      XzItem.DiskFileName := FullSourceFileName;
+      LzmaItem.FileName := FullArchiveFileName;
+      LzmaItem.DiskFileName := FullSourceFileName;
 
-      Result := XzItem;
+      Result := LzmaItem;
     except
       Result := nil;
       raise;
@@ -234,7 +234,7 @@ begin
       finally
         OutStream.Free;
       end;
-      { Xz doesn't store the last modified time or attributes, so don't set them }
+      { Lzma doesn't store the last modified time or attributes, so don't set them }
     except
       on E : EAbUserAbort do begin
         FStatus := asInvalid;
@@ -259,7 +259,7 @@ begin
   end
   else begin
     SwapToLzma;
-    { Index ignored as there's only one item in a Xz }
+    { Index ignored as there's only one item in a Lzma }
     DecompressToStream(aStream);
   end;
 end;
@@ -314,7 +314,6 @@ var
   UpdateArchive: Boolean;
   TempFileName: UTF8String;
   InputFileStream: TStream;
-  LzmaCompression: TLzmaCompression;
 begin
   if IsXzippedTar and TarAutoHandle then
   begin
@@ -329,12 +328,7 @@ begin
       FLzmaStream := TFileStreamEx.Create(TempFileName, fmCreate or fmShareDenyWrite);
     end;
     FTarStream.Position := 0;
-    LzmaCompression := TLzmaCompression.Create(FTarStream, FLzmaStream);
-    try
-      LzmaCompression.Code();
-    finally
-      LzmaCompression.Free;
-    end;
+    CompressFromStream(FTarStream);
     if UpdateArchive then
     begin
       FreeAndNil(FLzmaStream);
@@ -356,7 +350,7 @@ begin
       FCurrentItem := ItemList[I];
       CurItem      := TAbLzmaItem(ItemList[I]);
       case CurItem.Action of
-        aaNone, aaMove: Break;{ Do nothing; xz doesn't store metadata }
+        aaNone, aaMove: Break;{ Do nothing; lzma doesn't store metadata }
         aaDelete: ; {doing nothing omits file from new stream}
         aaAdd, aaFreshen, aaReplace, aaStreamAdd: begin
           FLzmaStream.Size := 0;
@@ -387,7 +381,7 @@ begin
     SwapToLzma;
   FTarAutoHandle := Value;
 end;
-
+{ -------------------------------------------------------------------------- }
 procedure TAbLzmaArchive.CompressFromStream(aStream: TStream);
 var
   Encoder: TLZMAEncoder;
@@ -401,7 +395,6 @@ begin
     Encoder.Free;
   end;
 end;
-
 { -------------------------------------------------------------------------- }
 procedure TAbLzmaArchive.DecompressToStream(aStream: TStream);
 var
