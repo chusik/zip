@@ -58,6 +58,8 @@ type
 
   TAbLzmaArchiveState = (gsLzma, gsTar);
 
+  { TAbLzmaArchive }
+
   TAbLzmaArchive = class(TAbTarArchive)
   private
     FLzmaStream   : TStream;        { stream for Lzma file}
@@ -68,6 +70,7 @@ type
     FState        : TAbLzmaArchiveState;
     FIsLzmaTar    : Boolean;
 
+    procedure CompressFromStream(aStream: TStream);
     procedure DecompressToStream(aStream: TStream);
     procedure SetTarAutoHandle(const Value: Boolean);
     procedure SwapToLzma;
@@ -359,22 +362,12 @@ begin
           FLzmaStream.Size := 0;
           if CurItem.Action = aaStreamAdd then
           begin
-            LzmaCompression := TLzmaCompression.Create(InStream, FLzmaStream);
-            try
-              LzmaCompression.Code(); { Copy/compress entire Instream to FLzmaStream }
-            finally
-              LzmaCompression.Free;
-            end;
+            CompressFromStream(InStream); { Copy/compress entire Instream to FLzmaStream }
           end
           else begin
             InputFileStream := TFileStreamEx.Create(CurItem.DiskFileName, fmOpenRead or fmShareDenyWrite);
             try
-              LzmaCompression := TLzmaCompression.Create(InputFileStream, FLzmaStream);
-              try
-                LzmaCompression.Code(); { Copy/compress entire Instream to FLzmaStream }
-              finally
-                LzmaCompression.Free;
-              end;
+              CompressFromStream(InputFileStream); { Copy/compress entire Instream to FLzmaStream }
             finally
               InputFileStream.Free;
             end;
@@ -394,6 +387,21 @@ begin
     SwapToLzma;
   FTarAutoHandle := Value;
 end;
+
+procedure TAbLzmaArchive.CompressFromStream(aStream: TStream);
+var
+  Encoder: TLZMAEncoder;
+begin
+  Encoder := TLZMAEncoder.Create;
+  try
+    Encoder.WriteCoderProperties(FLzmaStream);
+    FLzmaStream.WriteQWord(NToLE(aStream.Size));
+    Encoder.Code(aStream, FLzmaStream, -1, -1);
+  finally
+    Encoder.Free;
+  end;
+end;
+
 { -------------------------------------------------------------------------- }
 procedure TAbLzmaArchive.DecompressToStream(aStream: TStream);
 var

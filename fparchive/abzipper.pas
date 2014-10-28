@@ -444,17 +444,10 @@ begin
           inherited InitArchive;
         end;
 
-        atXz : begin
+        atXz, atXzippedTar : begin
           FArchive := TAbXzArchive.Create(FileName, fmOpenRead or fmShareDenyNone);
           TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsXzippedTar := False;
-          inherited InitArchive;
-        end;
-
-        atXzippedTar : begin
-          FArchive := TAbXzArchive.Create(FileName, fmOpenRead or fmShareDenyNone);
-          TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsXzippedTar := True;
+          TAbXzArchive(FArchive).IsXzippedTar := (ArcType = atXzippedTar);
           inherited InitArchive;
         end;
 
@@ -514,17 +507,17 @@ begin
           inherited InitArchive;
         end;
 
-        atXz : begin
+        atXz, atXzippedTar : begin
           FArchive := TAbXzArchive.Create(FileName, fmCreate or fmShareDenyWrite);
           TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsXzippedTar := False;
+          TAbXzArchive(FArchive).IsXzippedTar := (ArcType = atXzippedTar);
           inherited InitArchive;
         end;
 
-        atXzippedTar : begin
-          FArchive := TAbXzArchive.Create(FileName, fmCreate or fmShareDenyWrite);
-          TAbXzArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbXzArchive(FArchive).IsXzippedTar := True;
+        atLzma, atLzmaTar : begin
+          FArchive := TAbLzmaArchive.Create(FileName, fmCreate or fmShareDenyWrite);
+          TAbLzmaArchive(FArchive).TarAutoHandle := FTarAutoHandle;
+          TAbLzmaArchive(FArchive).IsXzippedTar := (ArcType = atLzmaTar);
           inherited InitArchive;
         end;
 
