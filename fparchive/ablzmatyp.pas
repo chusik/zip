@@ -157,8 +157,8 @@ constructor TAbLzmaArchive.CreateFromStream(aStream: TStream;
 begin
   inherited CreateFromStream(aStream, aArchiveName);
   FState       := gsLzma;
-  FLzmaStream    := FStream;
-  FLzmaItem      := FItemList;
+  FLzmaStream  := FStream;
+  FLzmaItem    := FItemList;
   FTarStream   := TAbVirtualMemoryStream.Create;
   FTarList     := TAbArchiveList.Create(True);
 end;
@@ -271,6 +271,7 @@ var
   Item: TAbLzmaItem;
   Abort: Boolean;
   ItemName: string;
+  Header: TAbLzmaHeader;
 begin
   if FLzmaStream.Size = 0 then
     Exit;
@@ -283,13 +284,16 @@ begin
   end
   else begin
     SwapToLzma;
+    FStream.Read(Header, SizeOf(Header));
     Item := TAbLzmaItem.Create;
     Item.Action := aaNone;
+    if Header.UncompressedSize <> High(Int64) then
+      Item.UncompressedSize := Header.UncompressedSize;
     { Filename isn't stored, so constuct one based on the archive name }
     ItemName := ExtractFileName(ArchiveName);
     if ItemName = '' then
       Item.FileName := 'unknown'
-    else if AnsiEndsText('.txz', ItemName) then
+    else if AnsiEndsText('.tlz', ItemName) then
       Item.FileName := ChangeFileExt(ItemName, '.tar')
     else
       Item.FileName := ChangeFileExt(ItemName, '');
@@ -393,19 +397,29 @@ end;
 { -------------------------------------------------------------------------- }
 procedure TAbLzmaArchive.DecompressToStream(aStream: TStream);
 var
-  LzmaDecompression: TLzmaDecompression;
+  Header: TAbLzmaHeader;
+  Decoder: TLZMADecoder;
 begin
-  LzmaDecompression := TLzmaDecompression.Create(FLzmaStream, aStream);
-  try
-    LzmaDecompression.Code
-  finally
-    LzmaDecompression.Free;
+  FLzmaStream.Seek(0, soFromBeginning);
+  if FLzmaStream.Read(Header, SizeOf(Header)) = SizeOf(Header) then
+  begin
+    Decoder := TLZMADecoder.Create;
+    try
+      if Decoder.SetDecoderProperties(Header.Properties) and
+         Decoder.Code(FLzmaStream, aStream, Header.UncompressedSize) then
+      begin
+        Exit; { Success }
+      end;
+    finally
+      Decoder.Free;
+    end;
   end;
+  raise EAbUnhandledType.Create;
 end;
 { -------------------------------------------------------------------------- }
 procedure TAbLzmaArchive.TestItemAt(Index: Integer);
 var
-  XzType: TAbArchiveType;
+  LzmaType: TAbArchiveType;
   BitBucket: TAbBitBucketStream;
 begin
   if IsXzippedTar and TarAutoHandle then begin
@@ -414,9 +428,9 @@ begin
   end
   else begin
     { Note Index ignored as there's only one item in a GZip }
-    XzType := VerifyLzma(FLzmaStream);
-    if not (XzType in [atXz, atXzippedTar]) then
-      raise EAbGzipInvalid.Create; // TODO: Add xz-specific exceptions }
+    LzmaType := VerifyLzma(FLzmaStream);
+    if not (LzmaType in [atLzma, atLzmaTar]) then
+      raise EAbGzipInvalid.Create; // TODO: Add lzma-specific exceptions }
     BitBucket := TAbBitBucketStream.Create(1024);
     try
       DecompressToStream(BitBucket);
