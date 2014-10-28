@@ -98,7 +98,7 @@ type
     property TarAutoHandle : Boolean
       read FTarAutoHandle write SetTarAutoHandle;
 
-    property IsXzippedTar : Boolean
+    property IsLzmaTar : Boolean
       read FIsLzmaTar write FIsLzmaTar;
   end;
 
@@ -186,7 +186,7 @@ var
   LzmaItem : TAbLzmaItem;
   FullSourceFileName, FullArchiveFileName: String;
 begin
-  if IsXzippedTar and TarAutoHandle then begin
+  if IsLzmaTar and TarAutoHandle then begin
     SwapToTar;
     Result := inherited CreateItem(SourceFileName, ArchiveDirectory);
   end
@@ -221,7 +221,7 @@ procedure TAbLzmaArchive.ExtractItemAt(Index: Integer;
 var
   OutStream : TStream;
 begin
-  if IsXzippedTar and TarAutoHandle then begin
+  if IsLzmaTar and TarAutoHandle then begin
     SwapToTar;
     inherited ExtractItemAt(Index, NewName);
   end
@@ -253,7 +253,7 @@ end;
 procedure TAbLzmaArchive.ExtractItemToStreamAt(Index: Integer;
   aStream: TStream);
 begin
-  if IsXzippedTar and TarAutoHandle then begin
+  if IsLzmaTar and TarAutoHandle then begin
     SwapToTar;
     inherited ExtractItemToStreamAt(Index, aStream);
   end
@@ -266,7 +266,7 @@ end;
 { -------------------------------------------------------------------------- }
 function TAbLzmaArchive.GetSupportsEmptyFolders : Boolean;
 begin
-  Result := IsXzippedTar and TarAutoHandle;
+  Result := IsLzmaTar and TarAutoHandle;
 end;
 { -------------------------------------------------------------------------- }
 procedure TAbLzmaArchive.LoadArchive;
@@ -279,7 +279,7 @@ begin
   if FLzmaStream.Size = 0 then
     Exit;
 
-  if IsXzippedTar and TarAutoHandle then begin
+  if IsLzmaTar and TarAutoHandle then begin
     { Decompress and send to tar LoadArchive }
     DecompressToStream(FTarStream);
     SwapToTar;
@@ -315,7 +315,7 @@ var
   TempFileName: UTF8String;
   InputFileStream: TStream;
 begin
-  if IsXzippedTar and TarAutoHandle then
+  if IsLzmaTar and TarAutoHandle then
   begin
     SwapToTar;
     inherited SaveArchive;
@@ -423,7 +423,7 @@ var
   LzmaType: TAbArchiveType;
   BitBucket: TAbBitBucketStream;
 begin
-  if IsXzippedTar and TarAutoHandle then begin
+  if IsLzmaTar and TarAutoHandle then begin
     SwapToTar;
     inherited TestItemAt(Index);
   end

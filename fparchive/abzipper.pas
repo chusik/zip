@@ -454,7 +454,7 @@ begin
         atLzma, atLzmaTar : begin
           FArchive := TAbLzmaArchive.Create(FileName, fmOpenRead or fmShareDenyNone);
           TAbLzmaArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbLzmaArchive(FArchive).IsXzippedTar := (ArcType = atLzmaTar);
+          TAbLzmaArchive(FArchive).IsLzmaTar := (ArcType = atLzmaTar);
           inherited InitArchive;
         end;
 
@@ -517,7 +517,7 @@ begin
         atLzma, atLzmaTar : begin
           FArchive := TAbLzmaArchive.Create(FileName, fmCreate or fmShareDenyWrite);
           TAbLzmaArchive(FArchive).TarAutoHandle := FTarAutoHandle;
-          TAbLzmaArchive(FArchive).IsXzippedTar := (ArcType = atLzmaTar);
+          TAbLzmaArchive(FArchive).IsLzmaTar := (ArcType = atLzmaTar);
           inherited InitArchive;
         end;
 
