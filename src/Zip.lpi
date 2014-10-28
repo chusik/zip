@@ -49,7 +49,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir);../../../../sdk;../fparchive"/>
-      <OtherUnitFiles Value="../fparchive;../../../../sdk;D:/Temp/XZ/"/>
+      <OtherUnitFiles Value="../fparchive;../../../../sdk;D:/Temp/XZ/;../lzma/compression/LZ;../lzma/compression/LZMA;../lzma/compression/RangeCoder"/>
       <UnitOutputDirectory Value="../lib"/>
     </SearchPaths>
     <Conditionals Value="if (TargetCPU &lt;> 'arm') then
