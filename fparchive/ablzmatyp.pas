@@ -26,12 +26,12 @@
  * ***** END LICENSE BLOCK ***** *)
 
 {*********************************************************}
-{* ABBREVIA: AbXzTyp.pas                                 *}
+{* ABBREVIA: AbLzmaTyp.pas                               *}
 {*********************************************************}
-{* ABBREVIA: TAbXzArchive, TAbXzItem classes             *}
+{* ABBREVIA: TAbLzmaArchive, TAbLzmaItem classes         *}
 {*********************************************************}
 {* Misc. constants, types, and routines for working      *}
-{* with Xz files                                         *}
+{* with Lzma files                                       *}
 {*********************************************************}
 
 unit AbLzmaTyp;
@@ -44,14 +44,9 @@ uses
   Classes,
   AbArcTyp, AbTarTyp, AbUtils;
 
-const
-  { The first six (6) bytes of the Stream are so called Header }
-  { Magic Bytes. They can be used to identify the file type.   }
-  AB_XZ_FILE_HEADER  =  #$FD'7zXZ'#00;
-
 type
-  PAbXzHeader = ^TAbXzHeader; { File Header }
-  TAbXzHeader = packed record { SizeOf(TAbXzHeader) = 13 }
+  PAbLzmaHeader = ^TAbLzmaHeader; { File Header }
+  TAbLzmaHeader = packed record   { SizeOf(TAbLzmaHeader) = 13 }
     Properties: array[0..4] of Byte; { LZMA properties }
     UncompressedSize : Int64;        { Uncompressed size }
   end;
@@ -59,23 +54,23 @@ type
 { The Purpose for this Item is the placeholder for aaAdd and aaDelete Support. }
 { For all intents and purposes we could just use a TAbArchiveItem }
 type
-  TAbXzItem = class(TabArchiveItem);
+  TAbLzmaItem = class(TabArchiveItem);
 
-  TAbXzArchiveState = (gsXz, gsTar);
+  TAbLzmaArchiveState = (gsLzma, gsTar);
 
-  TAbXzArchive = class(TAbTarArchive)
+  TAbLzmaArchive = class(TAbTarArchive)
   private
-    FXzStream     : TStream;        { stream for Xz file}
-    FXzItem       : TAbArchiveList; { item in xz (only one, but need polymorphism of class)}
+    FLzmaStream   : TStream;        { stream for Lzma file}
+    FLzmaItem     : TAbArchiveList; { item in lzma (only one, but need polymorphism of class)}
     FTarStream    : TStream;        { stream for possible contained Tar }
     FTarList      : TAbArchiveList; { items in possible contained Tar }
     FTarAutoHandle: Boolean;
-    FState        : TAbXzArchiveState;
-    FIsXzippedTar : Boolean;
+    FState        : TAbLzmaArchiveState;
+    FIsLzmaTar    : Boolean;
 
     procedure DecompressToStream(aStream: TStream);
     procedure SetTarAutoHandle(const Value: Boolean);
-    procedure SwapToXz;
+    procedure SwapToLzma;
     procedure SwapToTar;
 
   protected
@@ -101,7 +96,7 @@ type
       read FTarAutoHandle write SetTarAutoHandle;
 
     property IsXzippedTar : Boolean
-      read FIsXzippedTar write FIsXzippedTar;
+      read FIsLzmaTar write FIsLzmaTar;
   end;
 
 function VerifyLzma(Strm : TStream) : TAbArchiveType;
@@ -116,7 +111,7 @@ uses
 function VerifyLzma(Strm : TStream) : TAbArchiveType;
 var
   CurPos : Int64;
-  Hdr : TAbXzHeader;
+  Hdr : TAbLzmaHeader;
   TarStream: TStream;
   DecompStream: TLZMADecoder;
 begin
@@ -156,36 +151,36 @@ begin
 end;
 
 
-{ ****************************** TAbXzArchive ***************************** }
-constructor TAbXzArchive.CreateFromStream(aStream: TStream;
+{ ****************************** TAbLzmaArchive ***************************** }
+constructor TAbLzmaArchive.CreateFromStream(aStream: TStream;
   const aArchiveName: string);
 begin
   inherited CreateFromStream(aStream, aArchiveName);
-  FState       := gsXz;
-  FXzStream    := FStream;
-  FXzItem      := FItemList;
+  FState       := gsLzma;
+  FLzmaStream    := FStream;
+  FLzmaItem      := FItemList;
   FTarStream   := TAbVirtualMemoryStream.Create;
   FTarList     := TAbArchiveList.Create(True);
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.SwapToTar;
+procedure TAbLzmaArchive.SwapToTar;
 begin
   FStream   := FTarStream;
   FItemList := FTarList;
   FState    := gsTar;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.SwapToXz;
+procedure TAbLzmaArchive.SwapToLzma;
 begin
-  FStream   := FXzStream;
-  FItemList := FXzItem;
-  FState    := gsXz;
+  FStream   := FLzmaStream;
+  FItemList := FLzmaItem;
+  FState    := gsLzma;
 end;
 { -------------------------------------------------------------------------- }
-function TAbXzArchive.CreateItem(const SourceFileName   : string;
+function TAbLzmaArchive.CreateItem(const SourceFileName   : string;
                                     const ArchiveDirectory : string): TAbArchiveItem;
 var
-  XzItem : TAbXzItem;
+  XzItem : TAbLzmaItem;
   FullSourceFileName, FullArchiveFileName: String;
 begin
   if IsXzippedTar and TarAutoHandle then begin
@@ -193,8 +188,8 @@ begin
     Result := inherited CreateItem(SourceFileName, ArchiveDirectory);
   end
   else begin
-    SwapToXz;
-    XzItem := TAbXzItem.Create;
+    SwapToLzma;
+    XzItem := TAbLzmaItem.Create;
     try
       MakeFullNames(SourceFileName, ArchiveDirectory,
                     FullSourceFileName, FullArchiveFileName);
@@ -210,15 +205,15 @@ begin
   end;
 end;
 { -------------------------------------------------------------------------- }
-destructor TAbXzArchive.Destroy;
+destructor TAbLzmaArchive.Destroy;
 begin
-  SwapToXz;
+  SwapToLzma;
   FTarList.Free;
   FTarStream.Free;
   inherited Destroy;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.ExtractItemAt(Index: Integer;
+procedure TAbLzmaArchive.ExtractItemAt(Index: Integer;
   const NewName: string);
 var
   OutStream : TStream;
@@ -228,7 +223,7 @@ begin
     inherited ExtractItemAt(Index, NewName);
   end
   else begin
-    SwapToXz;
+    SwapToLzma;
     OutStream := TFileStreamEx.Create(NewName, fmCreate or fmShareDenyNone);
     try
       try
@@ -252,7 +247,7 @@ begin
   end;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.ExtractItemToStreamAt(Index: Integer;
+procedure TAbLzmaArchive.ExtractItemToStreamAt(Index: Integer;
   aStream: TStream);
 begin
   if IsXzippedTar and TarAutoHandle then begin
@@ -260,24 +255,24 @@ begin
     inherited ExtractItemToStreamAt(Index, aStream);
   end
   else begin
-    SwapToXz;
+    SwapToLzma;
     { Index ignored as there's only one item in a Xz }
     DecompressToStream(aStream);
   end;
 end;
 { -------------------------------------------------------------------------- }
-function TAbXzArchive.GetSupportsEmptyFolders : Boolean;
+function TAbLzmaArchive.GetSupportsEmptyFolders : Boolean;
 begin
   Result := IsXzippedTar and TarAutoHandle;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.LoadArchive;
+procedure TAbLzmaArchive.LoadArchive;
 var
-  Item: TAbXzItem;
+  Item: TAbLzmaItem;
   Abort: Boolean;
   ItemName: string;
 begin
-  if FXzStream.Size = 0 then
+  if FLzmaStream.Size = 0 then
     Exit;
 
   if IsXzippedTar and TarAutoHandle then begin
@@ -287,8 +282,8 @@ begin
     inherited LoadArchive;
   end
   else begin
-    SwapToXz;
-    Item := TAbXzItem.Create;
+    SwapToLzma;
+    Item := TAbLzmaItem.Create;
     Item.Action := aaNone;
     { Filename isn't stored, so constuct one based on the archive name }
     ItemName := ExtractFileName(ArchiveName);
@@ -305,10 +300,10 @@ begin
   FIsDirty := False;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.SaveArchive;
+procedure TAbLzmaArchive.SaveArchive;
 var
   I: Integer;
-  CurItem: TAbXzItem;
+  CurItem: TAbLzmaItem;
   UpdateArchive: Boolean;
   TempFileName: UTF8String;
   InputFileStream: TStream;
@@ -318,16 +313,16 @@ begin
   begin
     SwapToTar;
     inherited SaveArchive;
-    UpdateArchive := (FXzStream.Size > 0) and (FXzStream is TFileStreamEx);
+    UpdateArchive := (FLzmaStream.Size > 0) and (FLzmaStream is TFileStreamEx);
     if UpdateArchive then
     begin
-      FreeAndNil(FXzStream);
+      FreeAndNil(FLzmaStream);
       TempFileName := GetTempName(FArchiveName + ExtensionSeparator);
       { Create new archive with temporary name }
-      FXzStream := TFileStreamEx.Create(TempFileName, fmCreate or fmShareDenyWrite);
+      FLzmaStream := TFileStreamEx.Create(TempFileName, fmCreate or fmShareDenyWrite);
     end;
     FTarStream.Position := 0;
-    LzmaCompression := TLzmaCompression.Create(FTarStream, FXzStream);
+    LzmaCompression := TLzmaCompression.Create(FTarStream, FLzmaStream);
     try
       LzmaCompression.Code();
     finally
@@ -335,12 +330,12 @@ begin
     end;
     if UpdateArchive then
     begin
-      FreeAndNil(FXzStream);
+      FreeAndNil(FLzmaStream);
       { Replace original by new archive }
       if not (mbDeleteFile(FArchiveName) and mbRenameFile(TempFileName, FArchiveName)) then
         RaiseLastOSError;
       { Open new archive }
-      FXzStream := TFileStreamEx.Create(FArchiveName, fmOpenRead or fmShareDenyNone);
+      FLzmaStream := TFileStreamEx.Create(FArchiveName, fmOpenRead or fmShareDenyNone);
     end;
   end
   else begin
@@ -349,20 +344,20 @@ begin
     { aaNone & aaMove do nothing, as the file does not change, only the meta data }
     { aaDelete could make a zero size file unless there are two files in the list.}
     { aaAdd, aaStreamAdd, aaFreshen, & aaReplace will be the only ones to take action. }
-    SwapToXz;
+    SwapToLzma;
     for I := 0 to Pred(Count) do begin
       FCurrentItem := ItemList[I];
-      CurItem      := TAbXzItem(ItemList[I]);
+      CurItem      := TAbLzmaItem(ItemList[I]);
       case CurItem.Action of
         aaNone, aaMove: Break;{ Do nothing; xz doesn't store metadata }
         aaDelete: ; {doing nothing omits file from new stream}
         aaAdd, aaFreshen, aaReplace, aaStreamAdd: begin
-          FXzStream.Size := 0;
+          FLzmaStream.Size := 0;
           if CurItem.Action = aaStreamAdd then
           begin
-            LzmaCompression := TLzmaCompression.Create(InStream, FXzStream);
+            LzmaCompression := TLzmaCompression.Create(InStream, FLzmaStream);
             try
-              LzmaCompression.Code(); { Copy/compress entire Instream to FXzStream }
+              LzmaCompression.Code(); { Copy/compress entire Instream to FLzmaStream }
             finally
               LzmaCompression.Free;
             end;
@@ -370,9 +365,9 @@ begin
           else begin
             InputFileStream := TFileStreamEx.Create(CurItem.DiskFileName, fmOpenRead or fmShareDenyWrite);
             try
-              LzmaCompression := TLzmaCompression.Create(InputFileStream, FXzStream);
+              LzmaCompression := TLzmaCompression.Create(InputFileStream, FLzmaStream);
               try
-                LzmaCompression.Code(); { Copy/compress entire Instream to FXzStream }
+                LzmaCompression.Code(); { Copy/compress entire Instream to FLzmaStream }
               finally
                 LzmaCompression.Free;
               end;
@@ -387,20 +382,20 @@ begin
   end; { End Tar Else }
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.SetTarAutoHandle(const Value: Boolean);
+procedure TAbLzmaArchive.SetTarAutoHandle(const Value: Boolean);
 begin
   if Value then
     SwapToTar
   else
-    SwapToXz;
+    SwapToLzma;
   FTarAutoHandle := Value;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.DecompressToStream(aStream: TStream);
+procedure TAbLzmaArchive.DecompressToStream(aStream: TStream);
 var
   LzmaDecompression: TLzmaDecompression;
 begin
-  LzmaDecompression := TLzmaDecompression.Create(FXzStream, aStream);
+  LzmaDecompression := TLzmaDecompression.Create(FLzmaStream, aStream);
   try
     LzmaDecompression.Code
   finally
@@ -408,7 +403,7 @@ begin
   end;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.TestItemAt(Index: Integer);
+procedure TAbLzmaArchive.TestItemAt(Index: Integer);
 var
   XzType: TAbArchiveType;
   BitBucket: TAbBitBucketStream;
@@ -419,7 +414,7 @@ begin
   end
   else begin
     { Note Index ignored as there's only one item in a GZip }
-    XzType := VerifyLzma(FXzStream);
+    XzType := VerifyLzma(FLzmaStream);
     if not (XzType in [atXz, atXzippedTar]) then
       raise EAbGzipInvalid.Create; // TODO: Add xz-specific exceptions }
     BitBucket := TAbBitBucketStream.Create(1024);
@@ -431,7 +426,7 @@ begin
   end;
 end;
 { -------------------------------------------------------------------------- }
-procedure TAbXzArchive.DoSpanningMediaRequest(Sender: TObject;
+procedure TAbLzmaArchive.DoSpanningMediaRequest(Sender: TObject;
   ImageNumber: Integer; var ImageName: string; var Abort: Boolean);
 begin
   Abort := False;
