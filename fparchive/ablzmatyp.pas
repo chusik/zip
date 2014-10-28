@@ -34,7 +34,7 @@
 {* with Xz files                                         *}
 {*********************************************************}
 
-unit AbXzTyp;
+unit AbLzmaTyp;
 
 {$I AbDefine.inc}
 
@@ -51,10 +51,9 @@ const
 
 type
   PAbXzHeader = ^TAbXzHeader; { File Header }
-  TAbXzHeader = packed record { SizeOf(TAbXzHeader) = 12 }
-    HeaderMagic : array[0..5] of AnsiChar; { 0xFD, '7', 'z', 'X', 'Z', 0x00 }
-    StreamFlags : Word;                    { 0x00, 0x00-0x0F }
-    CRC32 : LongWord; { The CRC32 is calculated from the Stream Flags field }
+  TAbXzHeader = packed record { SizeOf(TAbXzHeader) = 13 }
+    Properties: array[0..4] of Byte; { LZMA properties }
+    UncompressedSize : Int64;        { Uncompressed size }
   end;
 
 { The Purpose for this Item is the placeholder for aaAdd and aaDelete Support. }
@@ -105,30 +104,21 @@ type
       read FIsXzippedTar write FIsXzippedTar;
   end;
 
-function VerifyXz(Strm : TStream) : TAbArchiveType;
+function VerifyLzma(Strm : TStream) : TAbArchiveType;
 
 implementation
 
 uses
-{$IFDEF MSWINDOWS}
-  Windows, // Fix inline warnings
-{$ENDIF}
   StrUtils, SysUtils,
-  AbXz, AbExcept, AbVMStrm, AbBitBkt, CRC, DCOSUtils, DCClassesUtf8;
+  AbXz, AbExcept, AbVMStrm, AbBitBkt, ULZMADecoder, ULZMAEncoder, DCOSUtils, DCClassesUtf8;
 
 { ****************** Helper functions Not from Classes Above ***************** }
-function VerifyHeader(const Header : TAbXzHeader) : Boolean;
-begin
-  Result := CompareByte(Header.HeaderMagic, AB_XZ_FILE_HEADER, SizeOf(Header.HeaderMagic)) = 0;
-  Result := Result and (Crc32(0, PByte(@Header.StreamFlags), SizeOf(Header.StreamFlags)) = Header.CRC32);
-end;
-{ -------------------------------------------------------------------------- }
-function VerifyXz(Strm : TStream) : TAbArchiveType;
+function VerifyLzma(Strm : TStream) : TAbArchiveType;
 var
-  Hdr : TAbXzHeader;
   CurPos : Int64;
+  Hdr : TAbXzHeader;
   TarStream: TStream;
-  DecompStream: TLzmaDecompression;
+  DecompStream: TLZMADecoder;
 begin
   Result := atUnknown;
 
@@ -136,18 +126,21 @@ begin
   Strm.Seek(0, soFromBeginning);
 
   try
-    if (Strm.Read(Hdr, SizeOf(Hdr)) = SizeOf(Hdr)) and VerifyHeader(Hdr) then begin
-      Result := atXz;
-      { Check for embedded TAR }
-      Strm.Seek(0, soFromBeginning);
+    if Strm.Read(Hdr, SizeOf(Hdr)) = SizeOf(Hdr) then
+    begin
       TarStream := TMemoryStream.Create;
       try
-        DecompStream := TLzmaDecompression.Create(Strm, TarStream);
+        DecompStream := TLZMADecoder.Create;
         try
-          DecompStream.Code(512 * 2);
-          TarStream.Seek(0, soFromBeginning);
-          if VerifyTar(TarStream) = atTar then
-            Result := atXzippedTar;
+          if DecompStream.SetDecoderProperties(Hdr.Properties) and
+             DecompStream.Code(Strm, TarStream, 512 * 2) then
+          begin
+            Result := atLzma;
+            { Check for embedded TAR }
+            TarStream.Seek(0, soFromBeginning);
+            if VerifyTar(TarStream) = atTar then
+              Result := atLzmaTar;
+          end;
         finally
           DecompStream.Free;
         end;
@@ -426,7 +419,7 @@ begin
   end
   else begin
     { Note Index ignored as there's only one item in a GZip }
-    XzType := VerifyXz(FXzStream);
+    XzType := VerifyLzma(FXzStream);
     if not (XzType in [atXz, atXzippedTar]) then
       raise EAbGzipInvalid.Create; // TODO: Add xz-specific exceptions }
     BitBucket := TAbBitBucketStream.Create(1024);
